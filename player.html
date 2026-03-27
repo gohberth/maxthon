@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FLV Player</title>
+
+  <!-- flv.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/flv.js@latest"></script>
+
+  <style>
+    body {
+      margin: 0;
+      background: #0f172a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: sans-serif;
+    }
+
+    .player-container {
+      width: 90%;
+      max-width: 900px;
+      background: #020617;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    video {
+      width: 100%;
+      height: auto;
+      background: black;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="player-container">
+    <video id="video" controls autoplay></video>
+  </div>
+
+  <script>
+    const video = document.getElementById('video');
+
+    // GANTI dengan URL FLV stream kamu
+    const flvUrl = "https://live1.pro2cdnlive.com/live/channel1.flv?wsSecret=70b39a19f591e2223c61245b17c6eb29&wsABSTime=";
+
+    if (flvjs.isSupported()) {
+      const player = flvjs.createPlayer({
+        type: 'flv',
+        url: flvUrl,
+        isLive: true
+      });
+
+      player.attachMediaElement(video);
+      player.load();
+      player.play();
+
+      // Auto reconnect kalau error
+      player.on(flvjs.Events.ERROR, function (errType, errDetail) {
+        console.log('Error FLV:', errType, errDetail);
+        player.unload();
+        player.load();
+        player.play();
+      });
+    } else {
+      alert("Browser tidak mendukung FLV.js");
+    }
+  </script>
+
+</body>
+</html>
