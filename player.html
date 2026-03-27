@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>FLV Player</title>
+  <title>HLS Player</title>
 
-  <!-- flv.js CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/flv.js@latest"></script>
+  <!-- hls.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
   <style>
     body {
@@ -33,40 +33,62 @@
       height: auto;
       background: black;
     }
+
+    .controls {
+      padding: 10px;
+      text-align: center;
+      color: #94a3b8;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
 
   <div class="player-container">
-    <video id="video" controls autoplay></video>
+    <video id="video" controls autoplay muted></video>
+    <!-- <div class="controls">HLS Stream Player</div> -->
   </div>
 
   <script>
     const video = document.getElementById('video');
 
-    // GANTI dengan URL FLV stream kamu
-    const flvUrl = "https://live1.pro2cdnlive.com/live/channel1.flv?wsSecret=70b39a19f591e2223c61245b17c6eb29&wsABSTime=";
+    // GANTI URL HLS (.m3u8)
+    const streamURL = "http://livestream.biznetvideo.net/biznet_adventure/smil:adventure.smil/playlist.m3u8";
 
-    if (flvjs.isSupported()) {
-      const player = flvjs.createPlayer({
-        type: 'flv',
-        url: flvUrl,
-        isLive: true
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        liveSyncDurationCount: 3
       });
 
-      player.attachMediaElement(video);
-      player.load();
-      player.play();
+      hls.loadSource(streamURL);
+      hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, function () {
+        video.play();
+      });
 
       // Auto reconnect kalau error
-      player.on(flvjs.Events.ERROR, function (errType, errDetail) {
-        console.log('Error FLV:', errType, errDetail);
-        player.unload();
-        player.load();
-        player.play();
+      hls.on(Hls.Events.ERROR, function (event, data) {
+        if (data.fatal) {
+          console.log("Error fatal, reload stream...");
+          hls.destroy();
+
+          const newHls = new Hls();
+          newHls.loadSource(streamURL);
+          newHls.attachMedia(video);
+        }
       });
-    } else {
-      alert("Browser tidak mendukung FLV.js");
+
+    } 
+    // Safari / iOS (native HLS support)
+    else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = streamURL;
+      video.addEventListener('loadedmetadata', () => {
+        video.play();
+      });
+    } 
+    else {
+      alert("Browser tidak mendukung HLS.");
     }
   </script>
 
