@@ -1,96 +1,462 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>HLS Player</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming TV</title>
+    <!-- Mengambil Library Hls.js untuk memutar .m3u8 -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <!-- Mengambil Library Dash.js untuk memutar .mpd (Opsional, atau bisa menggunakan native support browser) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dashjs/4.5.0/dash.all.min.js"></script>
+    
+    <style>
+        /* --- RESET & BASE STYLES --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-  <!-- hls.js CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0f0f0f;
+            color: #ffffff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
 
-  <style>
-    body {
-      margin: 0;
-      background: #0f172a;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      font-family: sans-serif;
-    }
+        /* --- HEADER --- */
+        header {
+            background-color: #1a1a1a;
+            padding: 0 20px;
+            height: 50px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #333;
+            z-index: 10;
+        }
 
-    .player-container {
-      width: 90%;
-      max-width: 900px;
-      background: #020617;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    }
+        .logo {
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: #fff;
+            letter-spacing: 1px;
+        }
+        
+        .logo span { color: #e50914; } /* Warna Netflix-like red */
 
-    video {
-      width: 100%;
-      height: auto;
-      background: black;
-    }
+        /* --- LAYOUT --- */
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            flex: 1;
+            height: calc(100vh - 50px);
+            overflow: hidden;
+        }
 
-    .controls {
-      padding: 10px;
-      text-align: center;
-      color: #94a3b8;
-      font-size: 14px;
-    }
-  </style>
+        /* --- VIDEO AREA --- */
+        .main-content {
+            background-color: #000;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        video {
+            width: 90%;
+            height: 90%;
+            object-fit: contain; /* Menjaga rasio video */
+            outline: none;
+        }
+
+        /* Overlay loading */
+        .loader {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 3px solid #333;
+            border-top: 3px solid #e50914;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: none; /* Muncul saat loading */
+            z-index: 5;
+        }
+
+        .now-playing {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            backdrop-filter: blur(4px);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            background-color: #181818;
+            border-left: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 15px;
+            background-color: #222;
+            font-weight: 600;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .live-badge {
+            background-color: #e50914;
+            color: white;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .channel-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        /* Custom Scrollbar */
+        .channel-list::-webkit-scrollbar { width: 5px; }
+        .channel-list::-webkit-scrollbar-track { background: #181818; }
+        .channel-list::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+
+        .channel-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 8px;
+            background-color: #222;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .channel-item:hover { background-color: #333; }
+        
+        .channel-item.active {
+            background-color: #2a2a2a;
+            border-left: 3px solid #e50914;
+        }
+
+        .channel-thumb {
+            width: 40px;
+            height: 40px;
+            background-color: #444;
+            border-radius: 4px;
+            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: #777;
+        }
+
+        .channel-info h4 { font-size: 0.9rem; margin-bottom: 3px; }
+        .channel-info p { font-size: 0.75rem; color: #888; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: 250px auto;
+                height: auto;
+                overflow-y: auto;
+            }
+            body { overflow: auto; }
+            .sidebar { height: auto; max-height: 400px; }
+            .main-content { height: 250px; }
+        }
+
+        @keyframes spin { 0% { transform: translate(-50%, -50%) rotate(0deg); } 100% { transform: translate(-50%, -50%) rotate(360deg); } }
+    </style>
 </head>
 <body>
 
-  <div class="player-container">
-    <video id="video" controls autoplay muted></video>
-    <!-- <div class="controls">HLS Stream Player</div> -->
-  </div>
+    <header>
+        <div class="logo">STREAMING<span>TV</span></div>
+        <div style="font-size: 0.8rem; color: #aaa; display: none;">HD Quality</div>
+    </header>
 
-  <script>
-    const video = document.getElementById('video');
+    <div class="container">
+        
+        <!-- Video Player -->
+        <main class="main-content">
+            <div class="loader" id="loader"></div>
+            <div class="now-playing" id="now-playing">Sedang Diputar: -</div>
+            
+            <!-- Video Element -->
+            <video id="videoPlayer" controls autoplay playsinline></video>
+        </main>
 
-    // GANTI URL HLS (.m3u8)
-    const streamURL = "https://ott-balancer.tvri.go.id/live/eds/SportHD/hls/SportHD.m3u8";
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <span>Channel List</span>
+                <span class="live-badge">Live</span>
+            </div>
+            <div class="channel-list" id="channel-list">
+                
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/useeprime/manifest.mpd', 'ALLPLAY ENTERTAINMENT', this)"><div class="channel-info"><h4>ALLPLAY ENTERTAINMENT</h4></div></div>
 
-    if (Hls.isSupported()) {
-      const hls = new Hls({
-        liveSyncDurationCount: 3
-      });
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/antara/manifest.mpd', 'ANTARA TV', this)"><div class="channel-info"><h4>ANTARA TV</h4></div></div>
 
-      hls.loadSource(streamURL);
-      hls.attachMedia(video);
+                <div class="channel-item" onclick="playStream('https://op-group1-swiftservehd-1.dens.tv/h/h209/index.m3u8', 'BERITA SATU', this)"><div class="channel-info"><h4>BERITA SATU</h4></div></div>
 
-      hls.on(Hls.Events.MANIFEST_PARSED, function () {
-        video.play();
-      });
+                <div class="channel-item" onclick="playStream('https://op-group1-swiftservehd-1.dens.tv/h/h210/index.m3u8', 'BTV', this)"><div class="channel-info"><h4>BTV</h4></div></div>
 
-      // Auto reconnect kalau error
-      hls.on(Hls.Events.ERROR, function (event, data) {
-        if (data.fatal) {
-          console.log("Error fatal, reload stream...");
-          hls.destroy();
+                <div class="channel-item" onclick="playStream('https://op-group1-swiftservehd-1.dens.tv/h/h39/index.m3u8', 'BN CHANNEL', this)"><div class="channel-info"><h4>BN CHANNEL</h4></div></div>
 
-          const newHls = new Hls();
-          newHls.loadSource(streamURL);
-          newHls.attachMedia(video);
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/boomerang/manifest.mpd', 'CARTOONITO', this)"><div class="channel-info"><h4>CARTOONITO</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/cinemax/manifest.mpd', 'CINEMAX', this)"><div class="channel-info"><h4>CINEMAX</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://live.cnbcindonesia.com/livecnbc/smil:cnbctv.smil/playlist.m3u8', 'CNBC INDONESIA', this)"><div class="channel-info"><h4>CNBC INDONESIA</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://live.cnnindonesia.com/livecnn/smil:cnntv.smil/playlist.m3u8', 'CNN INDONESIA', this)"><div class="channel-info"><h4>CNN INDONESIA</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://pull.daaiplus.com/live-DAAIPLUS/live-DAAIPLUS_HD.m3u8', 'DAAI TV', this)"><div class="channel-info"><h4>DAAI TV</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/DWTV/manifest.mpd', 'DW (ENGLISH)', this)"><div class="channel-info"><h4>DW (ENGLISH)</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/indikids/manifest.mpd', 'FUN PLANET', this)"><div class="channel-info"><h4>FUN PLANET</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://hgmtv.com:19360/garudatvlivestreaming/720p.m3u8', 'GARUDA TV', this)"><div class="channel-info"><h4>GARUDA TV</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/globaltv/manifest.mpd', 'GTV', this)"><div class="channel-info"><h4>GTV</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/hbo/manifest.mpd', 'HBO', this)"><div class="channel-info"><h4>HBO</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/hbofamily/manifest.mpd', 'HBO FAMILY', this)"><div class="channel-info"><h4>HBO FAMILY</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/hbohits/manifest.mpd', 'HBO HITS', this)"><div class="channel-info"><h4>HBO HITS</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/hbosignature/manifest.mpd', 'HBO SIGNATURE', this)"><div class="channel-info"><h4>HBO SIGNATURE</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/idx/manifest.mpd', 'IDX CHANNEL', this)"><div class="channel-info"><h4>IDX CHANNEL</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('http://op-group1-swiftservehd-1.dens.tv/h/h235/index.m3u8', 'INDOSIAR', this)"><div class="channel-info"><h4>INDOSIAR</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/inews/manifest.mpd', 'INEWS TV', this)"><div class="channel-info"><h4>INEWS TV</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/jawapos/manifest.mpd', 'JAWAPOS TV', this)"><div class="channel-info"><h4>JAWAPOS TV</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/kplus/manifest.mpd', 'K-PLUS', this)"><div class="channel-info"><h4>K-PLUS</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/kix/manifest.mpd', 'KIX', this)"><div class="channel-info"><h4>KIX</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('http://op-group1-swiftservehd-1.dens.tv/h/h234/index.m3u8', 'KOMPAS TV', this)"><div class="channel-info"><h4>KOMPAS TV</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://edge.medcom.id/live-edge/smil:magna.smil/playlist.m3u8', 'MAGNA TV', this)"><div class="channel-info"><h4>MAGNA TV</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://op-group1-swiftservehd-1.dens.tv/h/h223/index.m3u8', 'MDTV', this)"><div class="channel-info"><h4>MDTV</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://edge.medcom.id/live-edge/smil:metro.smil/playlist.m3u8', 'METRO TV', this)"><div class="channel-info"><h4>METRO TV</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/mnctv/manifest.mpd', 'MNCTV', this)"><div class="channel-info"><h4>MNCTV</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://op-group1-swiftservehd-1.dens.tv/h/h207/index.m3u8', 'MOJI TV', this)"><div class="channel-info"><h4>MOJI TV</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/mykids/manifest.mpd', 'MY KIDZ', this)"><div class="channel-info"><h4>MY KIDZ</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://nusantaratv.siar.us/nusantaratv/live/playlist.m3u8', 'NUSANTARA TV', this)"><div class="channel-info"><h4>NUSANTARA TV</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('http://op-group1-swiftservehd-1.dens.tv/h/h10/index.m3u8', 'RAJAWALI TELEVISI', this)"><div class="channel-info"><h4>RAJAWALI TELEVISI</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/rcti/manifest.mpd', 'RCTI', this)"><div class="channel-info"><h4>RCTI</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('http://op-group1-swiftservehd-1.dens.tv/h/h217/index.m3u8', 'SCTV', this)"><div class="channel-info"><h4>SCTV</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/mncnews/manifest.mpd', 'SINDONEWS TV', this)"><div class="channel-info"><h4>SINDONEWS TV</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/sinpotv/manifest.mpd', 'SIN PO TV', this)"><div class="channel-info"><h4>SIN PO TV</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://video.detik.com/trans7/smil:trans7.smil/playlist.m3u8', 'TRANS7', this)"><div class="channel-info"><h4>TRANS7</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://video.detik.com/transtv/smil:transtv.smil/playlist.m3u8', 'TRANS TV', this)"><div class="channel-info"><h4>TRANS TV</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://op-group1-swiftservehd-1.dens.tv/h/h40/index.m3u8', 'TV ONE', this)"><div class="channel-info"><h4>TV ONE</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://ott-balancer.tvri.go.id/live/eds/Nasional/hls/Nasional.m3u8', 'TVRI', this)"><div class="channel-info"><h4>TVRI</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://ott-balancer.tvri.go.id/live/eds/SportHD/hls/SportHD.m3u8', 'TVRI SPORT', this)"><div class="channel-info"><h4>TVRI SPORT</h4></div></div>
+
+                <div class="channel-item" onclick="playStream('https://cdn10jtedge.indihometv.com/atm/DASH/warner/manifest.mpd', 'WARNER TV', this)"><div class="channel-info"><h4>WARNER TV</h4></div></div>
+
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        const video = document.getElementById('videoPlayer');
+        const loader = document.getElementById('loader');
+        const nowPlayingText = document.getElementById('now-playing');
+        let hls = null;
+        let dashPlayer = null;
+
+        function showLoader(show) {
+            loader.style.display = show ? 'block' : 'none';
         }
-      });
 
-    } 
-    // Safari / iOS (native HLS support)
-    else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = streamURL;
-      video.addEventListener('loadedmetadata', () => {
-        video.play();
-      });
-    } 
-    else {
-      alert("Browser tidak mendukung HLS.");
-    }
-  </script>
+        function updateUI(title, element) {
+            // Update teks sekarang diputar
+            // nowPlayingText.innerText = "Sedang Diputar: " + title;
+            // nowPlayingText.style.opacity = '1';
 
+            // Update active class di sidebar
+            const items = document.querySelectorAll('.channel-item');
+            items.forEach(item => item.classList.remove('active'));
+            if(element) element.classList.add('active');
+        }
+
+        function destroyPlayer() {
+            if (hls) {
+                hls.destroy();
+                hls = null;
+            }
+            if (video) {
+                video.src = "";
+                video.removeAttribute('src');
+                video.load(); // Reset video element
+            }
+        }
+
+        function playStream(url, title, element) {
+            showLoader(true);
+            destroyPlayer();
+            updateUI(title, element);
+
+            // Deteksi tipe file dari URL
+            const isM3U8 = url.includes('.m3u8');
+            const isMPD = url.includes('.mpd');
+            const isMP4 = url.includes('.mp4') || url.includes('.webm');
+
+            if (isM3U8) {
+                // Logika untuk .m3u8 (HLS)
+                if (Hls.isSupported()) {
+                    hls = new Hls();
+                    hls.loadSource(url);
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                        showLoader(false);
+                        
+                        // --- BATAS KUALITAS MAKSIMAL 720P ---
+                        if (hls && hls.levels && hls.levels.length > 0) {
+                            const levels = hls.levels;
+                            let maxAllowedLevelIndex = -1;
+
+                            // Levels diurutkan dari kualitas tertinggi ke terendah (Index 0 adalah yang terbaik)
+                            // Cari index pertama yang memiliki tinggi <= 720
+                            for (let i = 0; i < levels.length; i++) {
+                                if (levels[i].height <= 720) {
+                                    maxAllowedLevelIndex = i;
+                                    break; // Ditemukan kualitas tertinggi yang diizinkan (720p atau lebih rendah)
+                                }
+                            }
+
+                            // Jika ditemukan level yang sesuai (misal: 720p, 480p, dll)
+                            if (maxAllowedLevelIndex !== -1) {
+                                // setLevelRange(minLevel, maxLevel)
+                                // Izinkan beralih dari level yang ditemukan (720p) hingga level terendah
+                                hls.setLevelRange(maxAllowedLevelIndex, levels.length - 1);
+                                console.log(`Kualitas dibatasi hingga max height: ${levels[maxAllowedLevelIndex].height}p`);
+                            }
+                        }
+                        // ------------------------------------
+
+                        video.play().catch(e => console.log("Autoplay prevented", e));
+                    });
+                    hls.on(Hls.Events.ERROR, function(event, data) {
+                        if (data.fatal) {
+                           console.error("Fatal error", data);
+                           alert("Stream Error: Link mati atau tidak support.");
+                           showLoader(false);
+                        }
+                    });
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    // Fallback untuk Safari yang punya native HLS support
+                    video.src = url;
+                    video.addEventListener('loadedmetadata', function() {
+                        showLoader(false);
+                        video.play();
+                    });
+                } else {
+                    alert("Browser tidak support HLS");
+                    showLoader(false);
+                }
+
+            } else if (isMPD) {
+                // Logika untuk .mpd (DASH)
+                // Menggunakan dash.js (global variable: dashjs)
+                if (dashjs) {
+                    dashPlayer = dashjs.MediaPlayer().create();
+                    dashPlayer.initialize(video, url, true); // true = autoPlay
+                    dashPlayer.on(dashjs.MediaPlayer.events.STREAM_ACTIVATED, () => {
+                        showLoader(false);
+                    });
+                    // Error handling dashjs
+                    dashPlayer.on(dashjs.MediaPlayer.events.ERROR, () => {
+                         alert("DASH Stream Error");
+                         showLoader(false);
+                    });
+                } else {
+                    // Jika dash.js gagal dimuat
+                    video.src = url;
+                    showLoader(false);
+                }
+
+            } else if (isMP4) {
+                // Logika untuk .mp4 / Video Biasa
+                video.src = url;
+                video.addEventListener('canplay', () => {
+                    showLoader(false);
+                    video.play();
+                });
+                video.addEventListener('error', () => {
+                    alert("Gagal memuat video");
+                    showLoader(false);
+                });
+            
+            } else {
+                // Jika format tidak dikenali, coba langsung assign (untuk .ts biasanya)
+                video.src = url;
+                showLoader(false);
+            }
+        }
+
+        // Otomatis putar channel pertama saat halaman dimuat
+        window.onload = function() {
+            const firstChannel = document.querySelector('.channel-item');
+            if(firstChannel) {
+                // Ambil atribut onclick parsing manual atau ubah fungsi playStream agar tereksekusi
+                // Disini kita simulasi klik pertama
+                const firstUrl = firstChannel.getAttribute('onclick').split("'")[1];
+                const firstTitle = firstChannel.getAttribute('onclick').split("'")[3];
+                playStream(firstUrl, firstTitle, firstChannel);
+            }
+        }
+    </script>
 </body>
 </html>
