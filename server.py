@@ -23,7 +23,7 @@ PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8787
 ALLOWED_HOSTS = [
     'dropbox.com', 'dl.dropboxusercontent.com',
     'drive.google.com', 'githubusercontent.com',
-    'pastebin.com', 'raw.githubusercontent.com',
+    'pastebin.com', 'raw.githubusercontent.com','diskon.cloud',
 ]
 
 class StreamVaultHandler(SimpleHTTPRequestHandler):
