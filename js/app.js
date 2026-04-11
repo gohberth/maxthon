@@ -9,7 +9,7 @@ const App = (() => {
      Default Playlist
   ───────────────────────────────────────────── */
   const DEFAULT_PLAYLIST = {
-    url:  'http://kendutv.diskon.cloud/liveevent/rakhoitvcache.m3u',
+    url:  '',
     name: 'Default Playlist',
     id:   'default_playlist',
   };
