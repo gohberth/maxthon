@@ -1,0 +1,2 @@
+# No external dependencies required for server.py (uses stdlib only)
+# But file is required for some deployment platforms to detect Python.
