@@ -11,6 +11,7 @@ with sync_playwright() as p:
 
     # baru buka target
     page.goto(url, timeout=60000)
+    page.wait_for_timeout(10000)  # tunggu 10 detik
 
     # ambil isi HTML
     content = page.content()
