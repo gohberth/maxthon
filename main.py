@@ -3,7 +3,7 @@ from playwright.sync_api import sync_playwright
 url = "https://aspaltvpasti.top/xxx/merah.php"
 
 with sync_playwright() as p:
-    browser = p.chromium.launch(headless=True)  # ubah ke False kalau mau lihat browsernya
+    browser = p.chromium.launch(headless=False)
     page = browser.new_page()
 
     # buka halaman utama dulu (biar dapet session/cookie)
