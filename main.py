@@ -1,26 +1,17 @@
-import requests
+from playwright.sync_api import sync_playwright
 
 url = "https://aspaltvpasti.top/xxx/merah.php"
 
-headers = {
-    "User-Agent": "Mozilla/5.0",
-    "Referer": "https://aspaltvpasti.top",
-    "Origin": "https://aspaltvpasti.top"
-}
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    page = browser.new_page()
 
-try:
-    response = requests.get(url, headers=headers, timeout=10)
+    page.goto("https://aspaltvpasti.top/")
+    page.goto(url)
 
-    if response.status_code == 200:
-        content = response.text
+    content = page.content()
 
-        # Simpan ke file
-        with open("output.html", "w", encoding="utf-8") as f:
-            f.write(content)
+    with open("output.html", "w", encoding="utf-8") as f:
+        f.write(content)
 
-        print("Berhasil disimpan ke output.html")
-    else:
-        print(f"Gagal. Status code: {response.status_code}")
-
-except Exception as e:
-    print("Error:", e)
+    browser.close()
