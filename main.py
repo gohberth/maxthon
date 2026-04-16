@@ -3,15 +3,21 @@ from playwright.sync_api import sync_playwright
 url = "https://aspaltvpasti.top/xxx/merah.php"
 
 with sync_playwright() as p:
-    browser = p.chromium.launch(headless=True)
+    browser = p.chromium.launch(headless=True)  # ubah ke False kalau mau lihat browsernya
     page = browser.new_page()
 
-    page.goto("https://aspaltvpasti.top/")
-    page.goto(url)
+    # buka halaman utama dulu (biar dapet session/cookie)
+    page.goto("https://aspaltvpasti.top/", timeout=60000)
 
+    # baru buka target
+    page.goto(url, timeout=60000)
+
+    # ambil isi HTML
     content = page.content()
 
     with open("output.html", "w", encoding="utf-8") as f:
         f.write(content)
+
+    print("Berhasil ambil konten!")
 
     browser.close()
