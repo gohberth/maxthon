@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Shaka DRM Player</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.compiled.js"></script>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: black;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    video {
+      width: 100vw;
+      height: 100vh;
+      object-fit: contain;
+      background: black;
+    }
+  </style>
+</head>
+<body>
+
+<video id="video" autoplay muted controls playsinline></video>
+
+<script>
+  async function initPlayer() {
+    const video = document.getElementById('video');
+    const player = new shaka.Player(video);
+
+    player.configure({
+      drm: {
+        servers: {
+          'com.widevine.alpha': 'https://aspaltvpasti.top/11111/19354.drm?exp=1776511803&uip=103.247.8.70&sign=f7c524c81727f57214609e93285de27e628d4c81855e5a61af584f77c8ca4229'
+        }
+      }
+    });
+
+    try {
+      await player.load('https://aspaltvpasti.top/11111/19354.mpd?exp=1776511803&uip=103.247.8.70&sign=64795a881e50708b2395cc2a02b6e5a3019a68c5edf73722636a78ae29478272');
+      console.log('Video berhasil dimuat');
+    } catch (e) {
+      console.error('Error load video:', e);
+    }
+  }
+
+  function openFullscreen() {
+    const elem = document.documentElement;
+
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen();
+    }
+  }
+
+  // 🔊 Unmute otomatis saat ada interaksi pertama
+  function enableSound() {
+    const video = document.getElementById('video');
+    video.muted = false;
+    video.volume = 1;
+    video.play();
+  }
+
+  window.onload = () => {
+    initPlayer();
+    openFullscreen();
+
+    // tangkap semua interaksi pertama (klik / tap / scroll)
+    ['click','touchstart','scroll'].forEach(event => {
+      document.addEventListener(event, enableSound, { once: true });
+    });
+  };
+</script>
+
+</body>
+</html>
